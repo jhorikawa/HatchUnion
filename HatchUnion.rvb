@@ -1,0 +1,93 @@
+Option Explicit
+'Script written by <Junichiro Horikawa>
+'Script copyrighted by <Junichiro Horikawa>
+'Script version 2010年10月29日 1:12:39
+
+Call Main()
+Sub Main()
+	Dim strObject, arrObjects,strCrv,arrCrvs,strBorder,strLayer,strings
+	Dim arrItems, arrDefaults, arrResults, blnVal
+	Dim strHatch, dblHatchRotation, dblHatchScale
+	Dim strTrim,arrTrims,arrUnions,strUnion
+	Dim arrBreps(),strBrep,strSrf,arrSrfs,vecNorm,path,counter,arrBounds
+	Dim numSrf,arrBs
+	strings = ""
+	
+
+	strObject = Rhino.GetObject("Select Hatch to Union", 65536, False, True)
+	If IsNull(strObject) Then Exit Sub
+	arrCrvs = Rhino.GetObjects("Select Closed Curves for Union", 4, True)
+	If Not IsArray(arrCrvs) Then Exit Sub
+	
+	Rhino.EnableRedraw(False)
+	
+	If IsArray(arrCrvs) Then
+		arrSrfs = Rhino.AddPlanarSrf(arrCrvs)
+		If IsArray(arrSrfs) Then
+			numSrf = UBound(arrSrfs)
+		End If
+	End If
+
+	Dim strCopyObject, arrBoundary,strBoundary, arrCurve,strHatchCurve,strAddHatch,arrAddHatches
+	If Rhino.isHatch(strObject) Then
+		'strCopyObject = strObject
+		strHatch = Rhino.HatchPattern(strObject)
+		dblHatchRotation = Rhino.HatchRotation(strObject)
+		dblHatchScale = Rhino.HatchScale(strObject)
+		strLayer = Rhino.ObjectLayer(strObject)
+		
+		arrBs = Rhino.DuplicateHatchBorders(strObject)
+		arrBoundary = Rhino.AddPlanarSrf(arrBs)
+		Rhino.DeleteObjects(arrBs)
+		
+		
+		Rhino.DeleteObject(strObject)
+		If IsArray(arrBoundary) Then
+			counter = 1
+			For Each strBoundary In arrBoundary
+				ReDim Preserve arrSrfs(numSrf+counter)
+				arrSrfs(numSrf + counter) = strBoundary
+			Next
+			
+			counter = 0
+			If IsArray(arrSrfs) Then
+				For Each strSrf In arrSrfs
+					vecNorm = Rhino.SurfaceNormal(strSrf, Rhino.SurfaceParameter(strSrf, Array(0.5, 0.5)))
+					vecNorm = Rhino.VectorUnitize(vecNorm)
+					If vecNorm(2) <> 1 Then
+						Rhino.FlipSurface strSrf, True
+					End If
+					
+					arrSrfs(counter) = strSrf
+					counter = counter + 1
+				Next
+			End If
+			
+			
+			arrUnions = Rhino.BooleanUnion(arrSrfs)
+			If IsArray(arrUnions)Then
+				For Each strUnion In arrUnions
+					arrCurve = Rhino.DuplicateSurfaceBorder(strUnion)
+					If isArray(arrCurve) Then
+						arrAddHatches = Rhino.AddHatches(arrCurve, strHatch, dblHatchScale, dblHatchRotation)
+						Rhino.ObjectLayer arrAddHatches, strLayer
+					End If
+					Rhino.DeleteObjects(arrCurve)
+				Next
+				Rhino.DeleteObjects arrUnions
+			Else
+				If isArray(arrBounds) Then
+					arrAddHatches = Rhino.AddHatches(arrBounds, strHatch, dblHatchScale, dblHatchRotation)
+					Rhino.ObjectLayer arrAddHatches, strLayer
+				End If
+				
+						
+			End If
+			'Rhino.DeleteObjects(arrBounds)
+					
+			Rhino.DeleteObjects(arrBoundary)
+			
+		End If
+	End If
+	Rhino.EnableRedraw(True)
+End Sub
